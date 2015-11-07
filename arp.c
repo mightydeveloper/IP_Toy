@@ -21,6 +21,110 @@
 #include <net/arp.h>
 
 
+// sending the ARP packet to the eth layer.
+// either reply or request. 
+// param ip_to The wanted IP destination address in network format.
+// param eth_to The ethernet destination address.
+// param arp_op The ARP operation.
+//
+// return 0 if success. 
+// return Negative value if success
+
+int send_arp_packet(in_addr_t ip_to, const uint8_t *eth_to, uint16_t arp_op)
+{
+    arp_t *packet;
+    int total_len; // to be returned if success
+    uint8_t *mac_addr;
+
+
+    packet = kmalloc(sizeof(arp_t));
+    if (packet==NULL)
+        return(-ENOMEM);
+
+    // create arp header
+    packet->arp_hard_type = htons(ARPHRD_ETHER); // ethernet address of the sender.
+    packet->arp_proto_type = htons(ETH_FRAME_IP); // format of the protocol address = IP packet type.
+    packet->arp_hard_size = ETH_ADDR_LEN; // length of the ethernet address.
+    packet->arp_proto_size = sizeof(in_addr_t) // size need not be converted to network order.
+    packet->arp_op = htons(arp_op);
+
+
+    // Copy the MAC address of this host                           
+    if ( (mac_addr = get_eth_mac_addr()) == NULL )
+        // No such device or address! 
+        return(-ENXIO);
+    memcpy(packet->arp_eth_source, mac_addr, ETH_ADDR_LEN);
+    // Copy the IP address of this host 
+    packet->arp_ip_source = get_host_ip();
+
+    // Set the destination MAC address
+    memcpy(packet->arp_eth_dest, eth_to, ETH_ADDR_LEN);
+    // Set the destination IP 
+    packet->arp_ip_dest = ip_to;
+
+
+    tot_len = send_eth_packet(eth_to, packet, sizeof(arp_t), htons(ETH_FRAME_ARP));  
+    #ifdef DEBUG
+    kprintf("\n\r%u bytes sent from ethernet layer", tot_len);
+    #endif
+
+    kfree(packet);
+
+    if ( tot_len < 0 )
+        return(tot_len);
+
+    return(0);
+}
+
+
+int send_eth_packet (const uint8_t *to, const void *data, size_t len, uint16_t type)
+{
+    uint8_t *packet;
+    uint8_t *mac_addr;
+
+    // Analyze the packet length (must be less than ETH_MTU)        //
+    // TODO: if the packet length if great than ETH_MTU             //
+    // perform a packet fragmentation.                              //
+    len = MIN(len, ETH_MTU);
+
+    // Create the ethernet packet                                   //
+    packet = kmalloc( MAX(len+ETH_HEAD_LEN, ETH_MIN_LEN) );
+    if (!packet)
+        return(-ENOMEM);
+
+    // Get the local mac address                                    //
+    if ( (mac_addr = get_eth_mac_addr()) == NULL )
+        // No such device or address!                           //
+        return(-ENXIO);
+
+    // Add the ethernet header to the packet                        //
+    memcpy(packet, to, ETH_ADDR_LEN);
+    memcpy(packet + ETH_ADDR_LEN, mac_addr, ETH_ADDR_LEN);
+    memcpy(packet + 2 * ETH_ADDR_LEN, &type, sizeof(uint16_t));
+
+    // Copy the data into the packet                                //
+    memcpy(packet + ETH_HEAD_LEN, data, len);
+
+    // Adjust the packet length including the size of the header    //
+
+    // Auto-pad! Send a minimum payload (another 4 bytes are        //
+    // sent automatically for the FCS, totalling to 64 bytes)       //
+    // It is the minimum length of an ethernet packet.              //
+    while (len < ETH_MIN_LEN)
+        packet[len++] = '\0';
+
+    // Go to the physical layer                                     //
+    len = send_rtl8139_packet(get_rtl8139_device(), packet, len);
+
+    // Free the memory of the packet                                //
+    kfree(packet);
+
+    // Return the bytes transmitted at this level                   //
+    return(len);
+
+}
+
+
 void arp_request(char *ip_dot) {
 	in_addr_t ip;
 	if ( !inet_aton(ip_dot, &ip) ) {
