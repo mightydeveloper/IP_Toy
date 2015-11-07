@@ -20,6 +20,19 @@
 
 #include <net/arp.h>
 
+
+void arp_request(char *ip_dot) {
+	in_addr_t ip;
+	if ( !inet_aton(ip_dot, &ip) ) {
+		printf("\n\r%s", "Not valid address!!!");
+	}
+	while(TRUE) {
+		send_arp_packet(ip_addr, eth_bcast, ARP_OP_REQUEST);
+		
+	}
+
+}
+
 void handle_arp_packet(arp_t *packet) {
 	#ifdef DEBUG
     // Dump the packet contents                                     
@@ -57,7 +70,7 @@ void handle_arp_packet(arp_t *packet) {
     switch( ntohs(packet->arp_op) )
         case ARP_OP_REQUEST:
         #ifdef DEBUG
-        kprintf("\n\rarp who-has %u.%u.%u.%u tell %u.%u.%u.%u (%02x:%02x:%02x:%02x:%02x:%02x)",
+        printf("\n\rarp who-has %u.%u.%u.%u tell %u.%u.%u.%u (%02x:%02x:%02x:%02x:%02x:%02x)",
 
                  IP_A(ntohl(packet->arp_ip_dest)), IP_B(ntohl(packet->arp_ip_dest)),
                  IP_C(ntohl(packet->arp_ip_dest)), IP_D(ntohl(packet->arp_ip_dest)),
@@ -72,7 +85,7 @@ void handle_arp_packet(arp_t *packet) {
         // Check if we must reply our address to the sender     
         if (packet->arp_ip_dest == get_host_ip())
         {
-            // Send our address resolution                  
+            // Send our address resolution reply             
             send_arp_packet(
                     packet->arp_ip_source,
                     packet->arp_eth_source,
@@ -83,26 +96,21 @@ void handle_arp_packet(arp_t *packet) {
 
 
         case ARP_OP_REPLY:
-        #ifdef DEBUG
-        // Echo reply received                                  
-        kprintf("\n\rarp reply %u.%u.%u.%u is-at %02x:%02x:%02x:%02x:%02x:%02x",
+        printf("\n\r%s", "received ARP Reply.");
+        printf("\n\rarp reply %u.%u.%u.%u is-at %02x:%02x:%02x:%02x:%02x:%02x",
 
-                     IP_A(ntohl(packet->arp_ip_source)), IP_B(ntohl(packet->arp_ip_source)),
-                     IP_C(ntohl(packet->arp_ip_source)), IP_D(ntohl(packet->arp_ip_source)),
+                    IP_A(ntohl(packet->arp_ip_source)), IP_B(ntohl(packet->arp_ip_source)),
+                    IP_C(ntohl(packet->arp_ip_source)), IP_D(ntohl(packet->arp_ip_source)),
 
-                     packet->arp_eth_source[0], packet->arp_eth_source[1], packet->arp_eth_source[2],
-                     packet->arp_eth_source[3], packet->arp_eth_source[4], packet->arp_eth_source[5]
-             );
-         #endif
-         break;
+                    packet->arp_eth_source[0], packet->arp_eth_source[1], packet->arp_eth_source[2],
+                    packet->arp_eth_source[3], packet->arp_eth_source[4], packet->arp_eth_source[5]
+            );
+        break;
 
-         default:
-         kprintf("\n\rarp: message unknown!");
-         break;
-         }
-
-
-
+        default:
+        printf("\n\rarp: message unknown!");
+        break;
+        }
 
 
 }
