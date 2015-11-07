@@ -1,4 +1,4 @@
-// arp.cpp
+// arp.c
 //
 // int send_arp_packet(in_addr_t ip_to, const uint8_t *eth_to, uint16_t arp_op)
 // 
@@ -14,12 +14,24 @@
 // case ARP_OP_REPLY:
 //   print block
 //
-//
-//
-//
+
+#include <const.h>
+#include <errno.h>
+
+#include <arch/mem.h>
+
+#include <kernel/clock.h>
+#include <kernel/console.h>
+#include <kernel/kmalloc.h>
+#include <kernel/semaphore.h>
+#include <kernel/task.h>
+
+#include <net/eth.h>
+#include <net/ip.h>
+#include <net/network.h>
+#include <net/rtl8139.h>
 
 #include <net/arp.h>
-
 
 // sending the ARP packet to the eth layer.
 // either reply or request. 
